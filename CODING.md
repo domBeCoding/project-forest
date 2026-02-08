@@ -370,11 +370,42 @@ Refs: #123
 
 ---
 
+## Pre-Push Verification
+
+**Every code change must be verified before pushing:**
+
+### 1. Compilation
+```bash
+# Gradle
+./gradlew compileJava compileTestJava
+
+# Verify no compilation errors
+```
+
+### 2. Tests
+```bash
+# Run all tests
+./gradlew test
+
+# Verify all tests pass before pushing
+```
+
+### 3. Code Quality
+- Self-review your diff before creating PR
+- Check for obvious issues (typos, debug code, commented code)
+- Ensure no secrets committed
+
+**Why this matters:** Broken builds and failing tests waste review time. Verify locally first.
+
+---
+
 ## Code Review Checklist
 
 Before submitting PR:
 - [ ] Code follows style guide
 - [ ] Tests added for new logic
+- [ ] All tests pass (`./gradlew test`)
+- [ ] Code compiles without errors
 - [ ] Documentation updated
 - [ ] No hardcoded secrets
 - [ ] No obvious security issues
