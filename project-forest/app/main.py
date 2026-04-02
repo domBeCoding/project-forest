@@ -1,68 +1,40 @@
-"""
-Project Forest - Main FastAPI Application
-
-Entry point for the automated trading bot.
-"""
-
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+import httpx
 
-from app.config import get_settings
-from app.api import health
+app = FastAPI(title="project-forest")
+
+BINANCE_TESTNET_URL = "https://testnet.binance.vision/api/v3/ping"
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager for startup/shutdown."""
-    # Startup
-    settings = get_settings()
-    print(f"🚀 Starting {settings.app_name} v{settings.app_version}")
+@app.get("/private/status")
+def status():
+    """Liveness probe - returns basic app status."""
+    return {"status": "up"}
+
+
+@app.get("/private/healthcheck")
+async def healthcheck():
+    """Readiness probe - returns overall health including dependencies."""
+    components = {
+        "app": {"status": "up"},
+        "binance": await check_binance()
+    }
     
-    # TODO: Initialize exchange client, database connections, etc.
+    overall = "up" if all(c["status"] == "up" for c in components.values()) else "degraded"
     
-    yield
-    
-    # Shutdown
-    print(f"👋 Shutting down {settings.app_name}")
-    
-    # TODO: Clean up resources
+    return {
+        "overall": overall,
+        "components": components
+    }
 
 
-def create_app() -> FastAPI:
-    """Application factory."""
-    settings = get_settings()
-    
-    app = FastAPI(
-        title=settings.app_name,
-        version=settings.app_version,
-        description="Automated cryptocurrency trading bot",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        lifespan=lifespan
-    )
-    
-    # Include routers
-    app.include_router(health.router)
-    
-    @app.get("/", response_class=JSONResponse)
-    async def root():
-        """Root endpoint with basic info."""
-        return {
-            "service": settings.app_name,
-            "version": settings.app_version,
-            "docs": "/docs",
-            "health": "/private/status"
-        }
-    
-    return app
-
-
-# Create the app instance for uvicorn
-app = create_app()
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+async def check_binance():
+    """Check Binance Testnet connectivity."""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(BINANCE_TESTNET_URL, timeout=5.0)
+            if response.status_code == 200:
+                return {"status": "up"}
+            return {"status": "down", "error": f"HTTP {response.status_code}"}
+        except Exception as e:
+            return {"status": "down", "error": str(e)}
